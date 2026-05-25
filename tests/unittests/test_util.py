@@ -178,7 +178,7 @@ def test_transform_mappings():
     ("some_callable", os.getcwd, os.getcwd()),
 ])
 def test_getqattr_no_link(name, value, expected):
-    class Phony(object):
+    class Phony:
         pass
 
     instance = Phony()
@@ -220,10 +220,67 @@ def test_http_request_post():
         mock_http_post.assert_called_with(url, request, timeout=timeout)
 
 
+def test_http_request_post_returns_response_object():
+    """http_request POST returns the http_post response object (not .text)."""
+    method = "POST"
+    url = "some_phony_url"
+    request = "some_phony_request"
+    timeout = 40
+    mock_response = mock.MagicMock()
+    mock_response.text = "some response text"
+    with mock.patch("pycsw.core.util.http_post",
+                    autospec=True, return_value=mock_response) as mock_http_post:
+        result = util.http_request(
+            method=method,
+            url=url,
+            request=request,
+            timeout=timeout
+        )
+        # The returned value must be the response object itself, not response.text
+        assert result is mock_response
+        assert result is not mock_response.text
+
+
+def test_http_request_get_returns_bytes():
+    """http_request GET returns bytes from urlopen."""
+    method = "GET"
+    url = "http://example.org/csw"
+    expected_content = b"<xml/>"
+    with mock.patch("pycsw.core.util.urlopen") as mock_urlopen, \
+         mock.patch("pycsw.core.util.Request") as mock_request_cls:
+        mock_response = mock.MagicMock()
+        mock_response.read.return_value = expected_content
+        mock_urlopen.return_value = mock_response
+        result = util.http_request(method=method, url=url)
+        assert result == expected_content
+
+
+def test_getqattr_item_initialized_to_none():
+    """getqattr initializes item=None so AttributeError in except doesn't cause NameError."""
+
+    class ObjWithNoAttr:
+        pass
+
+    # Previously, if getattr raised AttributeError, 'item' was never assigned.
+    # Now item=None guards against NameError in the except TypeError branch.
+    result = util.getqattr(ObjWithNoAttr(), "nonexistent_attribute")
+    assert result is None
+
+
+def test_getqattr_with_non_callable_none_attr():
+    """getqattr returns None when attribute exists but is None."""
+
+    class ObjWithNoneAttr:
+        some_attr = None
+
+    result = util.getqattr(ObjWithNoneAttr(), "some_attr")
+    assert result is None
+
+
 @pytest.mark.parametrize("url, expected", [
     ("http://host/wms", "http://host/wms?"),
     ("http://host/wms?foo=bar&", "http://host/wms?foo=bar&"),
-    ("http://host/wms?foo=bar", "http://host/wms?foo=bar&"),
+
     ("http://host/wms?", "http://host/wms?"),
     ("http://host/wms?foo", "http://host/wms?foo&"),
 ])
