@@ -36,3 +36,27 @@ jobs:
         with:
           mode: simulation
           run: pytest tests/benchmarks/ --codspeed
+$schema: https://raw.githubusercontent.com/CodSpeedHQ/codspeed/refs/heads/main/schemas/codspeed.schema.json
+
+# Global options applied to all benchmarks
+options:
+  warmup-time: "0.2s"
+  max-time: 1s
+
+# List of benchmarks to run
+benchmarks:
+  - name: "<command 1>"
+    exec: ./my_binary --arg1 value --arg2
+    # Override global options for this benchmark
+    options:
+      max-rounds: 20
+
+  - name: "<command 2>"
+    exec: ./my_binary2
+    options:
+      max-time: 200ms
+
+  - name: "<command 3>"
+    exec: ./my_binary3 --flag
+    options:
+      min-time: 200ms
