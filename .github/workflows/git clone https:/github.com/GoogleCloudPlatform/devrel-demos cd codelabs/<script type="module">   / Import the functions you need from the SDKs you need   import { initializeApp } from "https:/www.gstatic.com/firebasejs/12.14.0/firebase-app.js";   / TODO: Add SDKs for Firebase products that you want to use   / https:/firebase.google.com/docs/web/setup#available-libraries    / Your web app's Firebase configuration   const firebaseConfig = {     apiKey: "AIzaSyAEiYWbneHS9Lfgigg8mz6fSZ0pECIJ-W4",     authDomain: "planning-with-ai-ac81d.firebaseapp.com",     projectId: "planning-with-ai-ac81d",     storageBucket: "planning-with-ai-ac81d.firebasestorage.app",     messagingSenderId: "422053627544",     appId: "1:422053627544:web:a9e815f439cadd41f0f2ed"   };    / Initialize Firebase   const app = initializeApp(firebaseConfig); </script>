@@ -1,0 +1,19 @@
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyAEiYWbneHS9Lfgigg8mz6fSZ0pECIJ-W4",
+    authDomain: "planning-with-ai-ac81d.firebaseapp.com",
+    projectId: "planning-with-ai-ac81d",
+    storageBucket: "planning-with-ai-ac81d.firebasestorage.app",
+    messagingSenderId: "422053627544",
+    appId: "1:422053627544:web:a9e815f439cadd41f0f2ed"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script>
