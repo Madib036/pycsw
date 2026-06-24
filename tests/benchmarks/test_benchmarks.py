@@ -4,15 +4,20 @@
 #
 # These benchmarks cover the core utility functions that are on the
 # hot path of request processing: XPath evaluation, geometry
-# conversions, link parsing, URL handling, and XML text extraction.
+# conversions, link parsing, URL handling, XML text extraction,
+# API serialization, CQL parsing, and coordinate validation.
 #
 # =================================================================
 
 import json
+from datetime import date, datetime, time
+from decimal import Decimal
 
 import pytest
 
 from pycsw.core import util
+from pycsw.ogc.api.util import get_typed_value, json_serial, to_json, to_rfc3339
+from pycsw.opensearch import validate_4326
 
 
 # -- XPath / namespace evaluation ------------------------------------------
@@ -197,3 +202,122 @@ def test_get_version_integer(benchmark):
 def test_secure_filename(benchmark):
     """Benchmark secure filename sanitization."""
     benchmark(util.secure_filename, "../../../etc/passwd")
+
+
+# -- OGC API utilities (pycsw.ogc.api.util) ---------------------------------
+
+def test_get_typed_value_float(benchmark):
+    """Benchmark type inference for a float string."""
+    benchmark(get_typed_value, "3.14")
+
+
+def test_get_typed_value_int(benchmark):
+    """Benchmark type inference for an integer string."""
+    benchmark(get_typed_value, "42")
+
+
+def test_get_typed_value_string(benchmark):
+    """Benchmark type inference for a plain string."""
+    benchmark(get_typed_value, "metadata")
+
+
+def test_json_serial_datetime(benchmark):
+    """Benchmark custom JSON serialization of a datetime object."""
+    value = datetime(2024, 6, 15, 12, 30, 45)
+    benchmark(json_serial, value)
+
+
+def test_json_serial_date(benchmark):
+    """Benchmark custom JSON serialization of a date object."""
+    value = date(2024, 6, 15)
+    benchmark(json_serial, value)
+
+
+def test_json_serial_decimal(benchmark):
+    """Benchmark custom JSON serialization of a Decimal value."""
+    value = Decimal("123.456")
+    benchmark(json_serial, value)
+
+
+SAMPLE_DICT = {
+    "id": "abc-123",
+    "type": "Feature",
+    "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[100.0, 0.0], [101.0, 0.0],
+                         [101.0, 1.0], [100.0, 1.0], [100.0, 0.0]]],
+    },
+    "properties": {
+        "title": "National Elevation Dataset",
+        "description": "High-resolution elevation data",
+        "keywords": ["elevation", "DEM", "terrain"],
+        "updated": datetime(2024, 6, 15, 12, 30, 45),
+        "extent": {"spatial": {"bbox": [[-180, -90, 180, 90]]}},
+    },
+}
+
+
+def test_to_json_compact(benchmark):
+    """Benchmark JSON serialization (compact)."""
+    benchmark(to_json, SAMPLE_DICT, pretty=False)
+
+
+def test_to_json_pretty(benchmark):
+    """Benchmark JSON serialization (pretty-printed)."""
+    benchmark(to_json, SAMPLE_DICT, pretty=True)
+
+
+def test_to_rfc3339_date(benchmark):
+    """Benchmark RFC 3339 conversion of a date string."""
+    benchmark(to_rfc3339, "2024-06-15")
+
+
+def test_to_rfc3339_datetime(benchmark):
+    """Benchmark RFC 3339 conversion of a datetime string."""
+    benchmark(to_rfc3339, "2024-06-15T12:30:45Z")
+
+
+# -- OpenSearch utilities ---------------------------------------------------
+
+def test_validate_4326_valid(benchmark):
+    """Benchmark WGS84 bounding box validation (valid bbox)."""
+    benchmark(validate_4326, ["-180.0", "-90.0", "180.0", "90.0"])
+
+
+def test_validate_4326_invalid(benchmark):
+    """Benchmark WGS84 bounding box validation (invalid bbox)."""
+    benchmark(validate_4326, ["200.0", "-90.0", "180.0", "90.0"])
+
+
+# -- CQL to FES conversion -------------------------------------------------
+
+CQL_NSMAP = {
+    "ogc": "http://www.opengis.net/ogc",
+    "fes20": "http://www.opengis.net/fes/2.0",
+}
+
+
+def test_cql2fes_simple(benchmark):
+    """Benchmark CQL to FES conversion for a simple equality filter."""
+    from pycsw.ogc.csw.cql import cql2fes
+    benchmark(cql2fes, "dc:title = 'Elevation'", CQL_NSMAP)
+
+
+def test_cql2fes_and(benchmark):
+    """Benchmark CQL to FES conversion with AND logical operator."""
+    from pycsw.ogc.csw.cql import cql2fes
+    benchmark(
+        cql2fes,
+        "dc:title = 'Elevation' AND dc:type = 'dataset'",
+        CQL_NSMAP,
+    )
+
+
+def test_cql2fes_or(benchmark):
+    """Benchmark CQL to FES conversion with OR logical operator."""
+    from pycsw.ogc.csw.cql import cql2fes
+    benchmark(
+        cql2fes,
+        "dc:title = 'Elevation' OR dc:title = 'Hypsography'",
+        CQL_NSMAP,
+    )
